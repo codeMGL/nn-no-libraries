@@ -6,6 +6,7 @@ import numpy as np
 from numpy.random import default_rng
 
 
+# Debugging DEPRECATED
 def log(elt):
     print("TYPE", type(elt))
     if type(elt) == "<class 'list'>":
@@ -16,12 +17,18 @@ def log(elt):
     else:
         print(type(elt), elt)
 
+# Debugging
 
-def size(matrix, message="Size:"):
+
+def size(matrix, message="Size:", showMatrix=False):
     # matrix.shape also works
     matrixSize = str(len(matrix)) + "x" + str(len(matrix[0]))
-    print(message, matrixSize, matrix)
-    return [message, matrixSize, matrix]
+    if showMatrix:
+        print(message, matrixSize, matrix)
+        return [message, matrixSize, matrix]
+    else:
+        print(message, matrixSize)
+        return [message, matrixSize]
 
 
 def printSize(matrix):
@@ -30,15 +37,22 @@ def printSize(matrix):
 
 class NeuralNetwork:
 
-    def __init__(self, layers):
+    def __init__(self, layers, learningRate=0.2):
         self.layers = []
+        self.w = []
+        self.b = []
+        self.lr = learningRate
         for i in range(len(layers) - 1):
-            layer = Layer(i, layers[i], layers[i + 1])
-            self.layers.append(layer)
+            # layer = Layer(i, layers[i], layers[i + 1])
+            # self.layers.append(layer)
+            # Pasted
+            self.w.append(np.random.rand(layers[i + 1], layers[i]))
+            self.b.append(np.random.rand(layers[i + 1], 1))
+            self.layers.append(
+                "Layer " + str(i) + ". Weight: (" + str(layers[i + 1]) + "x" + str(layers[i]) + ")")
 
-        print("Number of layers:", len(self.layers))
-        print(self.layers)
-        self.len = len(self.layers)
+        print("Number of layers:", len(self.layers), self.layers)
+        self.len = len(layers)
         # Video notation:
         # Raw values (without first input layer)
         self.z = [None] * (len(layers))
@@ -50,49 +64,99 @@ class NeuralNetwork:
         self.dw = [None] * (len(layers))
         self.db = [None] * (len(layers))
 
+    def train(self, steps=100):
+        if steps <= 0:
+            return
+        self.feedForward(x)
+        self.backwardsPropagation()
+        steps -= 1
+        self.train(steps)
+
     # Forwards propagation
     def feedForward(self, inputs):
+        print("Forwards propagation")
         self.a[0] = inputs
 
         # Starting at index 1, looping throughout the whole list length
-        for i in range(1, self.len + 1):
+        # NO, now just looponing (1, len)
+        # size(self.w[0])
+        # size(self.a[0])
+        # size(self.w[0], "w0")
+        for i in range(1, self.len):
             # print("index", i)
-            self.z[i] = np.dot(self.layers[i - 1].w, self.a[i - 1])
-            self.z[i] = np.add(self.z[i], self.layers[i - 1].b)
+            self.z[i] = np.dot(self.w[i - 1], self.a[i - 1])
+            self.z[i] = np.add(self.z[i], self.b[i - 1])
             if i != self.len:
                 self.a[i] = self.ReLU(self.z[i], i)
-                # size(self.a[i], f"a{i}")
+                # size(self.a[i], f"relu a{i}")
             else:
                 # Applying softmax to the output layer
                 self.a[i] = self.softmax(self.z[i])
-                # size(self.a[i], "OUTPUT after softmax:")
-
-        print("////////////////////////////////////////////////////")
-        print("////////////////////////////////////////////////////")
-        self.backwardsPropagation()
+                size(self.a[i], "OUTPUT after softmax:")
 
     def backwardsPropagation(self):
+        print("Backwards propagation")
         # Calculating the error, based on the expected output (outputMatrix or "y")
+        last = self.len - 1
+        print("last = ", last)
         size(outputMatrix, "Results matrix:")
-        size(self.a[self.len], f"a[{self.len}]:")
+        size(self.a[last], f"a[{last}]:")
 
-        # Calculating dw[3] and db[3]
-        self.dz[self.len] = self.a[self.len] - outputMatrix
-        size(self.dz[self.len], "dz[3]")
-        self.dw[self.len] = (1 / m) * np.dot(
-            self.dz[self.len], np.transpose(self.a[self.len - 1]))
-        size(self.dw[self.len], f"dw{self.len}")
-        # Bias gradient
-        self.db[self.len] = (1 / m) * \
-            np.sum(self.dz[self.len], axis=1, keepdims=True)  # (2, 1)
-        size(self.db[self.len])
+        # Calculating dw[3] and db[3] // last = 2
 
-        #
-        w_T = np.transpose(self.w[self.len])
-        self.dz[self.len - 1] = np.dot(w_T,
-                                       self.dz[self.len])
-        self.dz[self.len - 1] *= self.ReLU_prime(self.z[self.len - 1])
-        size(self.dz[self.len - 1], f"dz{self.len - 1}")
+        # Loop (last, 1) to create dz, dw, db
+        for i in range(last, 0, -1):
+            print("Layer ", i)
+            if (i == last):
+                self.dz[last] = self.a[last] - outputMatrix
+            else:
+                # Weird? Should be index = last
+                w_T = np.transpose(self.w[i])
+                self.dz[i] = np.dot(w_T, self.dz[i + 1])
+                self.dz[i] *= self.ReLU_prime(self.z[i])
+            size(self.dz[i], f"dz{i}", False)
+            # -1 to be at the same pos as w. Weird
+            self.dw[i] = (1 / m) * np.dot(
+                self.dz[i], np.transpose(self.a[i - 1]))
+            size(self.dw[i], f"dw{i}", False)
+            # Bias gradient
+            self.db[i] = (1 / m) * \
+                np.sum(self.dz[i], axis=1, keepdims=True)
+            size(self.db[i], f"db{i}", False)
+
+        # Updating parameters
+        for n in range(1, last):
+            print("n", n)
+            self.w[n] = self.w[n] - self.lr * self.dw[n + 1]
+            self.b[n] -= self.lr * self.db[n + 1]
+        # for w in range(len(self.w)):
+        #     size(self.w[w])
+        # for b in range(len(self.b)):
+        #     size(self.b[b])
+
+          # size(self.dz[last], f"dz[{last}]")
+          # self.dw[last] = (1 / m) * np.dot(
+          #     self.dz[last], np.transpose(self.a[last - 1]))
+          # size(self.dw[last], f"dw{last}")
+          # # Bias gradient
+          # self.db[last] = (1 / m) * \
+          #     np.sum(self.dz[last], axis=1, keepdims=True)  # (2, 1)
+          # size(self.db[last])
+
+          # # size(self.w[last - 1], "test")
+          # # size(self.dz[last], f"dz{last}")
+          # # Weird? Should be index = last
+          # w_T = np.transpose(self.w[last - 1])
+          # self.dz[last - 1] = np.dot(w_T,
+          #                            self.dz[last])
+          # self.dz[last - 1] *= self.ReLU_prime(self.z[last - 1])
+          # # size(self.dz[last - 1], f"dz{last - 1}")
+          # # data = np.transpose(x)
+          # self.dw[last - 1] = (1 / m) * np.dot(self.dz[last - 1], data)
+          # size(self.dw[last - 1])
+          # self.db[last - 1] = (1 / m) * \
+          #     np.sum(self.dz[last - 1], axis=1, keepdims=True)
+          # size(self.db[last - 1], f"db{last - 1}")
 
     def ReLU(self, matrix, i):
         # Using numpy: return np.maximum(0, matrix)
@@ -141,18 +205,22 @@ class Layer:
 
 # Number of neurons in each layer
 inputSize = 20
-outputSize = 2
+outputSize = 10
 
 # Using the video's notation - Transposing the data
-data = np.array([list(range(20)),
-                 list(range(5, 25)),
-                 list(range(10, 30))])
+data = np.array([list(range(inputSize)),
+                 list(range(5, 5 + inputSize)),
+                 list(range(10, 10 + inputSize)),
+                 list(range(15, 15 + inputSize)),
+                 list(range(20, 20 + inputSize)),
+                 list(range(25, 25 + inputSize)),
+                 list(range(30, 30 + inputSize)),
+                 ])
 # Number of samples
 m = len(data)
-x = data.copy()
-x = np.transpose(x)
+x = np.transpose(data)
 # Outputs - Expected answer's index position
-y = np.array([0, 1, 1])
+y = np.array([0, 1, 1, 0, 0, 1, 0, 1])
 
 outputMatrix_T = np.full((m, outputSize), 0)  # m x OutputSize (3x2)
 # print("out matrix")
@@ -167,9 +235,11 @@ outputMatrix = np.transpose(outputMatrix_T)
 # print(x)
 
 
-nn = NeuralNetwork([inputSize, 10,  5, outputSize])
+nn = NeuralNetwork([inputSize, 10, 5, outputSize])
 # Transposed data. Size: inputs x m
-nn.feedForward(x)
+
+trainingSteps = 10
+nn.train(trainingSteps)
 
 # print("Weights:")
 # print(0, "size", len(nn.weights[0]), len(nn.weights[0][0]), nn.weights[0])
