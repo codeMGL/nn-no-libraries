@@ -65,7 +65,10 @@ class NeuralNetwork:
         self.db = [None] * (len(layers))
 
     def train(self, steps=100):
+        print("TRAINING...")
         if steps <= 0:
+            print("///////////////////////////")
+            print("Finished training")
             return
         self.feedForward(x)
         self.backwardsPropagation()
@@ -77,18 +80,11 @@ class NeuralNetwork:
         print("Forwards propagation")
         self.a[0] = inputs
 
-        # Starting at index 1, looping throughout the whole list length
-        # NO, now just looponing (1, len)
-        # size(self.w[0])
-        # size(self.a[0])
-        # size(self.w[0], "w0")
         for i in range(1, self.len):
-            # print("index", i)
             self.z[i] = np.dot(self.w[i - 1], self.a[i - 1])
             self.z[i] = np.add(self.z[i], self.b[i - 1])
             if i != self.len:
                 self.a[i] = self.ReLU(self.z[i], i)
-                # size(self.a[i], f"relu a{i}")
             else:
                 # Applying softmax to the output layer
                 self.a[i] = self.softmax(self.z[i])
@@ -238,7 +234,7 @@ outputMatrix = np.transpose(outputMatrix_T)
 nn = NeuralNetwork([inputSize, 10, 5, outputSize])
 # Transposed data. Size: inputs x m
 
-trainingSteps = 10
+trainingSteps = 2
 nn.train(trainingSteps)
 
 # print("Weights:")
